@@ -1,0 +1,5 @@
+model_save/ filter=lfs diff=lfs merge=lfs -text
+/home/hmcl/AE-convLSTM/AE-convLSTM_AIFIT/model_save filter=lfs diff=lfs merge=lfs -text
+model_save/autoencoder_v1.h5 filter=lfs diff=lfs merge=lfs -text
+model_save/autoencoder_v2.h5 filter=lfs diff=lfs merge=lfs -text
+model_save/autoencoder_v3.h5 filter=lfs diff=lfs merge=lfs -text

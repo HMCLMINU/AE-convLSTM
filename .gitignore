@@ -1,0 +1,7 @@
+## folder
+old_data_set/
+checkpoint/
+dataset/
+tensorboard/
+__pycache__/
+model_save/
