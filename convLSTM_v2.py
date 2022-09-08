@@ -54,17 +54,23 @@ number_of_hiddenunits = 32
 
 _data = os.listdir(data_save_path)
 random.shuffle(_data)
-num_of_train = int(len(_data) * 0.8) 
-num_of_val = int(len(_data) * 0.18) 
+num_of_train = int(len(_data) * 0.7) 
+num_of_val = int(len(_data) * 0.2) 
 num_of_test = int(len(_data) - num_of_train - num_of_val) 
 
 tensorboard_save_folder = '/home/hmcl/AE-convLSTM/AE-convLSTM_AIFIT/tensorboard'
 checkpoint_path = '/home/hmcl/AE-convLSTM/AE-convLSTM_AIFIT/checkpoint'
 model_save_folder = '/home/hmcl/AE-convLSTM/AE-convLSTM_AIFIT/model_save/'
-cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, verbose=1,
+img_save_folder = '/home/hmcl/AE-convLSTM/AE-convLSTM_AIFIT/image/'
+
+cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, verbose=1, save_best_only=True,
                                                  save_weights_only=False,period=100)
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tensorboard_save_folder, histogram_freq=0, write_graph=True,
                                                       write_images=False)
+early_stopping = tf.keras.callbacks.EarlyStopping()
+        
+options = tf.data.Options()
+options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.OFF
 
 def batch_dispatch(mode):
     train_data = _data[:num_of_train]
@@ -90,6 +96,10 @@ def batch_dispatch(mode):
                 if counter>=num_of_train:
                     counter = 0
                     random.shuffle(train_data)
+            # train_data = tf.data.Dataset.from_tensor_slices((image_seqs, labels)) 
+            # train_data = train_data.batch(batch_size)
+            # train_data = train_data.with_options(options)
+            # yield train_data  
             yield image_seqs, labels
     elif mode == "val":
         counter = 0
@@ -111,6 +121,11 @@ def batch_dispatch(mode):
                 if counter>=num_of_val:
                     counter = 0
                     random.shuffle(val_data)
+            # val_data = tf.data.Dataset.from_tensor_slices((val_image_seqs, val_labels)) 
+            # val_data = val_data.batch(batch_size)
+            # val_data = val_data.with_options(options)
+
+            # yield val_data
             yield val_image_seqs, val_labels
 
 def test_batch(): 
@@ -142,53 +157,86 @@ def cross_entropy_loss(y_true, y_pred):
 def get_model():
     # input_img = keras.Input(shape=(time,height,width,color_channels))
     seq = Sequential()
-    seq.add(layers.TimeDistributed(layers.Conv2D(72, (5, 5), activation = 'relu', strides=2, padding="same"), batch_input_shape=(None, time, height, width, color_channels)))
+
+    seq.add(layers.TimeDistributed(layers.Conv2D(256, (5, 5), activation = 'relu', strides=2, padding="same"), batch_input_shape=(None, time, height, width, color_channels)))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2D(64, (5, 5), activation = 'relu', strides=2, padding="same")))
+    # seq.add(layers.TimeDistributed(layers.Conv2D(, (5, 5), activation = 'relu', strides=2, padding="same")))
+    # seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2D(240, (5, 5), activation = 'relu', strides=2, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2D(56, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2D(230, (5, 5), activation = 'relu', strides=2, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2D(48, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2D(220, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    # seq.add(layers.TimeDistributed(layers.MaxPool2D(pool_size=(2,2), padding='SAME',strides=(2,2))))
-    seq.add(layers.TimeDistributed(layers.Conv2D(40, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2D(210, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2D(200, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2D(190, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2D(180, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
     
-    # seq.add(layers.TimeDistributed(layers.MaxPool2D(pool_size=(2,2), padding='SAME',strides=(2,2))))
-    seq.add(layers.TimeDistributed(layers.Conv2D(32, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2D(170, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
-   
-    # # # # #
-    seq.add(layers.ConvLSTM2D(32, (3, 3), padding="same", return_sequences=True)) # temporal encoder
+    
+    seq.add(layers.TimeDistributed(layers.Conv2D(160, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
-    seq.add(layers.ConvLSTM2D(16, (3, 3), padding="same", return_sequences=True)) # bottleneck
-    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
-    seq.add(layers.ConvLSTM2D(32, (3, 3), padding="same", return_sequences=True)) # temporal decoder
+
+    seq.add(layers.TimeDistributed(layers.Conv2D(128, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
     # # # # #
+    seq.add(layers.ConvLSTM2D(64, (3, 3), padding="same", return_sequences=True)) # temporal encoder
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+    seq.add(layers.ConvLSTM2D(32, (3, 3), padding="same", return_sequences=True)) # bottleneck
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+    seq.add(layers.ConvLSTM2D(64, (3, 3), padding="same", return_sequences=True)) # temporal decoder
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+    # # # # #
 
-    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(32, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(128, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(40, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(160, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(48, (5, 5), activation = 'relu', strides=2, padding="same")))
-    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
-    # seq.add(layers.TimeDistributed(layers.UpSampling2D(size=(2,2))))
-
-    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(56, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(170, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(64, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(180, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
-    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(72, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(190, (5, 5), activation = 'relu', strides=1, padding="same")))
     seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(200, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(210, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(220, (5, 5), activation = 'relu', strides=1, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(230, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(240, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    seq.add(layers.TimeDistributed(layers.Conv2DTranspose(256, (5, 5), activation = 'relu', strides=2, padding="same")))
+    seq.add(layers.TimeDistributed(layers.LayerNormalization()))
+
+    # seq.add(layers.TimeDistributed(layers.Conv2DTranspose(512, (5, 5), activation = 'relu', strides=2, padding="same")))
+    # seq.add(layers.TimeDistributed(layers.LayerNormalization()))
 
     seq.add(layers.TimeDistributed(layers.Conv2D(3, (5, 5), activation="sigmoid", padding="same")))
     # seq.add(layers.Conv2D(3, (11, 11), activation="sigmoid", padding="same"))
@@ -202,69 +250,92 @@ def new_train():
 
     autoencoder = get_model()
 
-    history = autoencoder.fit(batch_dispatch("train"),
+    history = autoencoder.fit(batch_dispatch(mode = "train"),
                     epochs=epochs,
                     steps_per_epoch = num_of_train*7//batch_size,
                     batch_size= batch_size,
-                    validation_data = batch_dispatch("val"),
+                    validation_data = batch_dispatch(mode = "val"),
                     validation_steps=1,
                     callbacks=[cp_callback, tensorboard_callback])
     # with open(os.path.join(base_folder,'files',model_name,'training_logs.json'),'w') as w:
     #     json.dump(history.history,w)
-    autoencoder.save(model_save_folder + 'autoencoder_v4.h5')
+    autoencoder.save(model_save_folder + 'autoencoder_v5.h5')
      
 
 def predict():
     # # # Load Model
-    autoencoder = tf.keras.models.load_model(model_save_folder + 'autoencoder_v4.h5')
+    # autoencoder = tf.keras.models.load_model(model_save_folder + 'autoencoder_v5.h5')
+    autoencoder = tf.keras.models.load_model(checkpoint_path)
     test_x, test_y = test_batch()
+    test_x = test_x.astype('float32')
+    test_y = test_y.astype('float32')
     # Prediction ...
     predicted_ = np.empty((0, height, width , color_channels)) 
-
-    for i in range(int(test_x.shape[0]/num_of_test)):
-        #predict until 10 frames
-        if i == 0:
-            predicted_frames = autoencoder.predict(test_x[i].reshape(1, time, height, width, color_channels)) # (1, 4, h, w, c)        
-            predicted_ = np.vstack((predicted_, predicted_frames.reshape(4, 336, 336, 3)))
-        else:
-            predicted_frames = autoencoder.predict(predicted_frames)
-            predicted_ = np.vstack((predicted_, predicted_frames.reshape(4, 336, 336, 3)))
-            if predicted_.shape[0] >= 10:
-                predicted_ = predicted_[:10]
-                break
-    
-    
-    n = 10
-    plt.figure(figsize=(n, 2))
-    # plt.imshow(predicted_frames[0])
-    # plot original label
     test_image_seqs = np.empty((0,height,width,color_channels))
-    for i in range(int(test_y.shape[0]/num_of_test)):
-        if i == int(test_y.shape[0]/num_of_test)-1:
+    # for i in range(int(test_x.shape[0]/num_of_test)):
+    #     #predict until 10 frames
+    #     if i%7 == 0:
+    #         predicted_frames = autoencoder.predict(test_x[i].reshape(1, time, height, width, color_channels)) # (1, 4, h, w, c)        
+    #         predicted_ = np.vstack((predicted_, predicted_frames.reshape(4, 336, 336, 3)))
+    #     else:
+    #         predicted_frames = autoencoder.predict(predicted_frames)
+    #         # if i%6 == 0: # last frame
+    #         #     predicted_frames = predicted_frames[:2] # two image
+    #         predicted_ = np.vstack((predicted_, predicted_frames.reshape(4, 336, 336, 3)))
+        
+    #         if predicted_.shape[0] >= 10:
+    #             predicted_ = predicted_[:10]
+    #             break
+    sim = 0
+    n = 10
+    while (predicted_.shape[0]<num_of_test*10):
+        for i in range(3):
+            if i == 0:
+                predicted_frames = autoencoder.predict(test_x[sim].reshape(1, time, height, width, color_channels)) # (1, 4, h, w, c)        
+                predicted_ = np.vstack((predicted_, predicted_frames.reshape(4, 336, 336, 3)))
+            else:
+                predicted_frames = autoencoder.predict(predicted_frames)
+                predicted_ = np.vstack((predicted_, predicted_frames.reshape(4, 336, 336, 3)))
+                if i == 2:
+                    predicted_ = predicted_[:predicted_.shape[0]-2]
+        sim = sim+7
+ 
+    # plt.imshow(predicted_frames[0]
+    # plot original label
+    for i in range(int(test_y.shape[0])):
+        if i % 7 == 6:
             img = test_y[i] # all image at last batch
             test_image_seqs = np.vstack((test_image_seqs, img))
         else:
             img = test_y[i][0].reshape(1, height, width, color_channels) # first image at each batch
             test_image_seqs = np.vstack((test_image_seqs, img))
 
-    for i in range(1, n + 1):
-        # Display original
-        plt.suptitle('True label vs Predicted label',fontweight="bold")
-        ax = plt.subplot(2, n, i)
-        ax.set_title("Time at :" + str(i+4))     
-        plt.imshow(test_image_seqs[i-1])
-        plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
+    for sim in range(int(predicted_.shape[0]/n)):
+        plt.figure(figsize=(n*2, 5))
+        plt.rcParams["figure.figsize"] = (5, 5)
+        start = sim*10
+        for i in range(1, n + 1):
+            # Display original
+            plt.suptitle('Batch' + str(sim) + 'True label vs Predicted label',fontweight="bold")
+            ax = plt.subplot(2, n, i)
+            ax.set_title("Time at :" + str(i+4))
+            plt.imshow(test_image_seqs[start+i-1])
+            plt.gray()
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
 
-        # Display reconstruction
-        ax = plt.subplot(2, n, i + n)
-        ax.set_title("Time at :" + str(i+4))
-        plt.imshow(predicted_[i-1])
-        plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-    plt.show()
+            # Display reconstruction
+            ax = plt.subplot(2, n, i + n)
+            ax.set_title("Time at :" + str(i+4))
+            plt.imshow(predicted_[start+i-1])
+            plt.gray()
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+        # plt.show()
+        my_file = 'batch_'+str(sim) + 'th_result.png'
+        plt.savefig(os.path.join(img_save_folder, my_file))
+    
+    print("~~~~~~~~PREDICTION DONE~~~~~~~~~~~")
 
 if __name__ == "__main__":
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -280,10 +351,11 @@ if __name__ == "__main__":
             print(e)
 
     # Use Multi GPU
-    strategy = tf.distribute.MirroredStrategy()
+    # strategy = tf.distribute.MirroredStrategy()
+    communication_options = tf.distribute.experimental.CommunicationOptions(
+    implementation=tf.distribute.experimental.CommunicationImplementation.NCCL)
+    strategy = tf.distribute.MultiWorkerMirroredStrategy(communication_options=communication_options)
     with strategy.scope():
-        # get_model()
-        
-        new_train()
-        # predict()
-        
+        # get_model()        
+        # new_train()
+        predict()

@@ -5,3 +5,4 @@ dataset/
 tensorboard/
 __pycache__/
 model_save/
+image/
